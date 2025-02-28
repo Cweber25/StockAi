@@ -112,3 +112,5 @@ class StockApp(App):
 
 if __name__ == '__main__':
     StockApp().run()
+
+#test
