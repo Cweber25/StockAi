@@ -1,12 +1,14 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import io
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.core.image import Image as CoreImage
 
 class StockPage(BoxLayout):
     def __init__(self, **kwargs):
@@ -16,7 +18,6 @@ class StockPage(BoxLayout):
         self.tickers = ['NVDA', 'CVS', 'FNILX', 'PLTR', 'RGTI']  # Add or remove tickers as desired
         self.ticker_index = 0  # Start with the first ticker in the list
         
-        self.graph_file = "stock_graph.png"
         self.initial = None  # For tracking swipe starting point
         
         # Label to show the current price
@@ -24,7 +25,7 @@ class StockPage(BoxLayout):
         self.add_widget(self.price_label)
         
         # Image widget to display the graph
-        self.graph_image = Image(source=self.graph_file, allow_stretch=True, keep_ratio=True, size_hint=(1, 0.8))
+        self.graph_image = Image(allow_stretch=True, keep_ratio=True, size_hint=(1, 0.8))
         self.add_widget(self.graph_image)
         
         # Update immediately and then every 60 seconds
@@ -63,11 +64,16 @@ class StockPage(BoxLayout):
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout()
-        plt.savefig(self.graph_file)
+        
+        # Save figure to an in-memory buffer instead of disk
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
         plt.close(fig)
         
-        # Refresh the graph image widget
-        self.graph_image.reload()
+        # Load the image from the buffer using Kivy's CoreImage and update the widget's texture
+        core_image = CoreImage(buf, ext="png")
+        self.graph_image.texture = core_image.texture
         
         # Update the current price label
         current_price = stock.info.get("regularMarketPrice", None)
