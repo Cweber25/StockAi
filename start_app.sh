@@ -1,2 +1,2 @@
 #!/bin/bash
-/home/coleweber/StockAi/venv/python /home/coleweber/StockAi/mainStockPage.py
+/home/coleweber/StockAi/venv/bin/python /home/coleweber/StockAi/mainStockPage.py
