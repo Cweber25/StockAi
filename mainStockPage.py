@@ -1,5 +1,8 @@
 from kivy.app import App
 from kivy.uix.label import Label
+from kivy.config import Config
+
+Config.set('graphics', 'fullscreen', 'auto')
 
 class HelloWorldApp(App):
     def build(self):
