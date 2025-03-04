@@ -13,16 +13,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Stop running process
-        run: |
-          pkill -f mainStockPage.py || true
-          sleep 5
-
       - name: Pull latest changes
         run: |
           cd /home/${{ secrets.PI_USERNAME }}/StockAi
           git pull origin main
 
-      - name: Restart application
-        run: |
-          sudo reboot
+      # - name: Restart application
+      #   run: |
+      #     sudo reboot
