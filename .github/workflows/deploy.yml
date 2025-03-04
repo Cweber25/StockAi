@@ -18,6 +18,6 @@ jobs:
           cd /home/${{ secrets.PI_USERNAME }}/StockAi
           git pull origin main
 
-      # - name: Restart application
-      #   run: |
-      #     sudo reboot
+      - name: Restart application
+        run: |
+          sudo reboot
