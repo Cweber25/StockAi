@@ -13,18 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: ${{ secrets.PI_USERNAME }}
-          key: ${{ secrets.PI_SSH_KEY }}
-          script: |
-            cd /home/${{ secrets.PI_USERNAME }}/StockAi
-            git pull origin main
-            # Kill any running instance; ignore errors if none is found.
-            pkill -f mainStockPage.py || true
-            sleep 5
-            # Restart the app in the background.
-            env DISPLAY=:0 /home/${{ secrets.PI_USERNAME }}/StockAi/venv/bin/python /home/${{ secrets.PI_USERNAME }}/StockAi/mainStockPage.py &
-            exit 0
+      - name: Stop running process
+        run: |
+          pkill -f mainStockPage.py || true
+          sleep 5
+
+      - name: Pull latest changes
+        run: |
+          cd /home/${{ secrets.PI_USERNAME }}/StockAi
+          git pull origin main
+
+      - name: Restart application
+        run: |
+          nohup env DISPLAY=:0 /home/${{ secrets.PI_USERNAME }}/StockAi/venv/bin/python /home/${{ secrets.PI_USERNAME }}/StockAi/mainStockPage.py > /home/${{ secrets.PI_USERNAME }}/StockAi/app.log 2>&1 &
