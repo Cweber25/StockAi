@@ -3,20 +3,26 @@ name: Deploy to Raspberry Pi
 on:
   push:
     branches:
-      - main   # Adjust based on your branch name
+      - main
 
 jobs:
   deploy:
-    runs-on: self-hosted  # Since you have the Pi as a self-hosted runner
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
+      - name: Stop running process
         run: |
-          cd /home/coleweber/StockAi
+          pkill -f mainStockPage.py || true
+          sleep 5
+
+      - name: Pull latest changes
+        run: |
+          cd /home/${{ secrets.PI_USERNAME }}/StockAi
           git pull origin main
-          pkill -f mainStockPage.py  # Kill the existing process if running
-          sleep 2  # Small delay to ensure process stops
-          nohup env DISPLAY=:0 /home/coleweber/StockAi/venv/bin/python /home/coleweber/StockAi/mainStockPage.py >> /home/coleweber/reboot.log 2>&1 &
+
+      - name: Restart application
+        run: |
+          sudo reboot
