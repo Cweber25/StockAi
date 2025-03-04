@@ -6,7 +6,7 @@ Config.set('graphics', 'fullscreen', 'auto')
 
 class HelloWorldApp(App):
     def build(self):
-        return Label(text="Hello World", font_size='48sp')
+        return Label(text="Hello Loser", font_size='48sp')
 
 if __name__ == '__main__':
     HelloWorldApp().run()
