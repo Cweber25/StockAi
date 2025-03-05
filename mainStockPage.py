@@ -9,6 +9,10 @@ from kivy.uix.label import Label
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.core.image import Image as CoreImage
+from kivy.config import Config
+# Turn cursor back on with sudo mv /usr/share/icons/PiXflat/cursors/left_ptr.bak /usr/share/icons/PiXflat/cursors/left_ptr
+Config.set('graphics', 'fullscreen', 'auto')
+
 
 class StockPage(BoxLayout):
     def __init__(self, **kwargs):
