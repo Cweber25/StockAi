@@ -1,7 +1,11 @@
+from kivy.config import Config
+Config.set('graphics', 'fullscreen', 'auto')
+
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import io
+import threading
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
@@ -9,109 +13,94 @@ from kivy.uix.label import Label
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.core.image import Image as CoreImage
-from kivy.config import Config
-# Turn cursor back on with sudo mv /usr/share/icons/PiXflat/cursors/left_ptr.bak /usr/share/icons/PiXflat/cursors/left_ptr
-Config.set('graphics', 'fullscreen', 'auto')
-
 
 class StockPage(BoxLayout):
     def __init__(self, **kwargs):
         super(StockPage, self).__init__(orientation='vertical', **kwargs)
         
-        # List of tickers to cycle through
-        self.tickers = ['NVDA', 'CVS', 'FNILX', 'PLTR', 'RGTI']  # Add or remove tickers as desired
-        self.ticker_index = 0  # Start with the first ticker in the list
+        self.tickers = ['NVDA', 'CVS', 'FNILX', 'PLTR', 'RGTI']
+        self.ticker_index = 0
+        self.stock_data = {}  # Dictionary to store preloaded stock data
+        self.initial = None  
         
-        self.initial = None  # For tracking swipe starting point
-        
-        # Label to show the current price
         self.price_label = Label(text="Fetching price...", font_size='24sp', size_hint=(1, 0.2))
         self.add_widget(self.price_label)
         
-        # Image widget to display the graph
         self.graph_image = Image(allow_stretch=True, keep_ratio=True, size_hint=(1, 0.8))
         self.add_widget(self.graph_image)
         
-        # Update immediately and then every 60 seconds
+        self.preload_stock_data()  # Start preloading data
         self.update_page()
         Clock.schedule_interval(lambda dt: self.update_page(), 60)
     
+    def preload_stock_data(self):
+        def fetch_data():
+            for ticker in self.tickers:
+                stock = yf.Ticker(ticker)
+                self.stock_data[ticker] = stock.history(period="1mo")
+        
+        threading.Thread(target=fetch_data, daemon=True).start()
+    
     def update_page(self):
-        # Get the current ticker from the list
         current_ticker = self.tickers[self.ticker_index]
+        if current_ticker not in self.stock_data:
+            return  # Skip update if data is not ready yet
         
-        # Fetch one month of historical data for the current ticker
-        stock = yf.Ticker(current_ticker)
-        data = stock.history(period="1mo")
-        
-        # Apply a modern style to the graph (using an available style)
+        data = self.stock_data[current_ticker]
         plt.style.use('seaborn-v0_8-darkgrid')
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=100)
         
-        # Plot the closing prices with custom styling
-        ax.plot(data.index, data['Close'], linewidth=2.5, color='royalblue',
-                marker='o', markersize=5, label='Close Price')
+        ax.plot(data.index, data['Close'], linewidth=2, color='royalblue',
+                marker='o', markersize=4, label='Close Price')
         
-        # Format the x-axis for dates
         ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
         fig.autofmt_xdate()
         
-        # Set title and labels with custom font sizes
-        ax.set_title(f"{current_ticker} Stock Price (Last Month)", fontsize=18, pad=15)
-        ax.set_xlabel("Date", fontsize=14)
-        ax.set_ylabel("Price (USD)", fontsize=14)
-        ax.legend(fontsize=12, loc='upper left')
+        ax.set_title(f"{current_ticker} Stock Price (Last Month)", fontsize=16, pad=10)
+        ax.set_xlabel("Date", fontsize=12)
+        ax.set_ylabel("Price (USD)", fontsize=12)
+        ax.legend(fontsize=10, loc='upper left')
         
-        # Remove top and right spines for a cleaner look
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
         plt.tight_layout()
-        
-        # Save figure to an in-memory buffer instead of disk
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
         buf.seek(0)
         plt.close(fig)
         
-        # Load the image from the buffer using Kivy's CoreImage and update the widget's texture
         core_image = CoreImage(buf, ext="png")
         self.graph_image.texture = core_image.texture
+        self.graph_image.canvas.ask_update()
         
-        # Update the current price label
+        stock = yf.Ticker(current_ticker)
         current_price = stock.info.get("regularMarketPrice", None)
-        if current_price:
-            self.price_label.text = f"{current_ticker} Price: ${current_price:.2f}"
-        else:
-            self.price_label.text = f"{current_ticker} Price: N/A"
+        self.price_label.text = f"{current_ticker} Price: ${current_price:.2f}" if current_price else f"{current_ticker} Price: N/A"
     
     def on_touch_down(self, touch):
-        # Capture the initial x-coordinate when a touch begins
         self.initial = touch.x
         return super(StockPage, self).on_touch_down(touch)
     
     def on_touch_up(self, touch):
-        # Determine swipe direction by comparing the ending x-coordinate with the initial value
         if self.initial is None:
             return super(StockPage, self).on_touch_up(touch)
-        
-        if touch.x < self.initial:
-            # Swipe left: move to the next ticker
+
+        swipe_threshold = 50  
+        if touch.x < self.initial - swipe_threshold:
             self.ticker_index = (self.ticker_index + 1) % len(self.tickers)
-            print("Swipe left detected. New ticker:", self.tickers[self.ticker_index])
-            self.update_page()
-        elif touch.x > self.initial:
-            # Swipe right: move to the previous ticker
+        elif touch.x > self.initial + swipe_threshold:
             self.ticker_index = (self.ticker_index - 1) % len(self.tickers)
-            print("Swipe right detected. New ticker:", self.tickers[self.ticker_index])
-            self.update_page()
         
+        Clock.unschedule(self.update_page)
+        Clock.schedule_once(lambda dt: self.update_page(), 0)
+        self.initial = None
         return super(StockPage, self).on_touch_up(touch)
 
 class StockApp(App):
     def build(self):
-        Window.clearcolor = (1, 1, 1, 1)  # White background
+        Window.clearcolor = (1, 1, 1, 1)
         return StockPage()
 
 if __name__ == '__main__':
